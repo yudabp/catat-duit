@@ -6,13 +6,19 @@ import type {
   CategoryBreakdownItem,
   CategoryType,
   DailyTrendPoint,
+  InventorySummary,
   MonthOption,
   MonthSummary,
+  NewProductInput,
+  NewSaleInput,
   NewTransactionInput,
   OutboxOperation,
+  Product,
+  Sale,
   Transaction,
   TransactionFilters,
   TransactionType,
+  UpdateProductInput,
   UpdateTransactionInput,
 } from './types';
 import { isSignedIn } from '@/services/session';
@@ -109,6 +115,60 @@ function mapOutbox(row: OutboxRow): OutboxOperation {
     createdAt: row.created_at,
     attempts: row.attempts,
     lastError: row.last_error,
+  };
+}
+
+type ProductRow = {
+  id: string;
+  server_id: string | null;
+  name: string;
+  cost: number;
+  price: number;
+  stock: number;
+  created_at: string;
+  updated_at: string;
+  sync_status: string;
+};
+
+type SaleRow = {
+  id: string;
+  product_id: string | null;
+  product_name: string;
+  quantity: number;
+  cost_per_unit: number;
+  price_per_unit: number;
+  total_price: number;
+  total_profit: number;
+  note: string;
+  sale_date: string;
+  created_at: string;
+};
+
+function mapProduct(row: ProductRow): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    cost: Number(row.cost),
+    price: Number(row.price),
+    stock: Number(row.stock),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapSale(row: SaleRow): Sale {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    productName: row.product_name,
+    quantity: Number(row.quantity),
+    costPerUnit: Number(row.cost_per_unit),
+    pricePerUnit: Number(row.price_per_unit),
+    totalPrice: Number(row.total_price),
+    totalProfit: Number(row.total_profit),
+    note: row.note,
+    saleDate: row.sale_date,
+    createdAt: row.created_at,
   };
 }
 
@@ -556,11 +616,61 @@ export async function getMonthSummary(
   };
 }
 
+export async function getTotalSummary(): Promise<MonthSummary> {
+  const db = await getDatabase();
+  const today = todayISO();
+  const row = await db.getFirstAsync<AggregateRow>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expense,
+       COUNT(*) AS count,
+       COALESCE(SUM(CASE WHEN type = 'income' THEN 1 ELSE 0 END), 0) AS income_count,
+       COALESCE(SUM(CASE WHEN type = 'expense' THEN 1 ELSE 0 END), 0) AS expense_count,
+       COALESCE(SUM(CASE WHEN type = 'expense' AND transaction_date = ? THEN amount ELSE 0 END), 0) AS today_expense
+     FROM transactions`,
+    [today],
+  );
+
+  const income = Number(row?.income ?? 0);
+  const expense = Number(row?.expense ?? 0);
+  return {
+    month: 'all',
+    income,
+    expense,
+    balance: income - expense,
+    transactionCount: Number(row?.count ?? 0),
+    incomeCount: Number(row?.income_count ?? 0),
+    expenseCount: Number(row?.expense_count ?? 0),
+    todayExpense: Number(row?.today_expense ?? 0),
+  };
+}
+
 export async function getCategoryBreakdown(
   month: string,
   type: TransactionType,
 ): Promise<{ total: number; items: CategoryBreakdownItem[] }> {
   const db = await getDatabase();
+  const isAll = month === 'all';
+  const query = isAll
+    ? `SELECT c.id AS category_id, c.name AS name, c.icon AS icon,
+              c.color AS color, SUM(t.amount) AS total, COUNT(*) AS count
+       FROM transactions t
+       INNER JOIN categories c ON c.id = t.category_id
+       WHERE t.type = ?
+       GROUP BY c.id, c.name, c.icon, c.color
+       ORDER BY total DESC`
+    : `SELECT c.id AS category_id, c.name AS name, c.icon AS icon,
+              c.color AS color, SUM(t.amount) AS total, COUNT(*) AS count
+       FROM transactions t
+       INNER JOIN categories c ON c.id = t.category_id
+       WHERE t.type = ? AND t.transaction_date >= ? AND t.transaction_date <= ?
+       GROUP BY c.id, c.name, c.icon, c.color
+       ORDER BY total DESC`;
+
+  const params = isAll
+    ? [type]
+    : [type, startOfMonth(month), endOfMonth(month)];
+
   const rows = await db.getAllAsync<{
     category_id: string;
     name: string;
@@ -568,16 +678,7 @@ export async function getCategoryBreakdown(
     color: string;
     total: number;
     count: number;
-  }>(
-    `SELECT c.id AS category_id, c.name AS name, c.icon AS icon,
-            c.color AS color, SUM(t.amount) AS total, COUNT(*) AS count
-     FROM transactions t
-     INNER JOIN categories c ON c.id = t.category_id
-     WHERE t.type = ? AND t.transaction_date >= ? AND t.transaction_date <= ?
-     GROUP BY c.id, c.name, c.icon, c.color
-     ORDER BY total DESC`,
-    [type, startOfMonth(month), endOfMonth(month)],
-  );
+  }>(query, params);
 
   const total = rows.reduce((sum, row) => sum + Number(row.total), 0);
   const items = rows.map((row) => ({
@@ -774,5 +875,345 @@ export async function listTransactionsForExport(
     amount: Number(row.amount),
     note: row.note,
   }));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Products & Inventory                                                       */
+/* -------------------------------------------------------------------------- */
+
+async function findCategoryByName(
+  name: string,
+  type: 'expense' | 'income',
+): Promise<Category | null> {
+  const categories = await listCategories();
+  const lower = name.toLowerCase();
+  return (
+    categories.find(
+      (c) =>
+        c.name.toLowerCase() === lower &&
+        (c.type === type || c.type === 'both'),
+    ) ??
+    categories.find(
+      (c) =>
+        c.name.toLowerCase().includes(lower) &&
+        (c.type === type || c.type === 'both'),
+    ) ??
+    null
+  );
+}
+
+export async function listProducts(): Promise<Product[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<ProductRow>(
+    'SELECT * FROM products ORDER BY name ASC',
+  );
+  return rows.map(mapProduct);
+}
+
+export async function getProduct(id: string): Promise<Product | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<ProductRow>(
+    'SELECT * FROM products WHERE id = ?',
+    [id],
+  );
+  return row ? mapProduct(row) : null;
+}
+
+export async function createProduct(input: NewProductInput): Promise<Product> {
+  const db = await getDatabase();
+  const now = nowISO();
+  const id = createId();
+  const stock = Math.max(0, Math.round(input.stock ?? 0));
+  const cost = Math.max(0, Math.round(input.cost));
+  const price = Math.max(0, Math.round(input.price));
+
+  await db.runAsync(
+    `INSERT INTO products (id, server_id, name, cost, price, stock, created_at, updated_at, sync_status)
+     VALUES (?, NULL, ?, ?, ?, ?, ?, ?, 'local')`,
+    [id, input.name.trim(), cost, price, stock, now, now],
+  );
+
+  // Otomatis catat pengeluaran ke kategori "Modal" jika ada stok awal
+  if (stock > 0 && cost > 0) {
+    try {
+      const modalCategory =
+        (await findCategoryByName('Modal', 'expense')) ??
+        (await listCategories()).find((c) => c.type === 'expense' || c.type === 'both');
+
+      if (modalCategory) {
+        await createTransaction({
+          categoryId: modalCategory.id,
+          type: 'expense',
+          amount: cost * stock,
+          note: `Modal produk ${input.name.trim()} (${stock} pcs)`,
+          transactionDate: todayISO(),
+        });
+      }
+    } catch {
+      // Pencatatan transaksi tidak menggagalkan pembuatan produk
+    }
+  }
+
+  return {
+    id,
+    name: input.name.trim(),
+    cost,
+    price,
+    stock,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function updateProduct(
+  id: string,
+  input: UpdateProductInput,
+): Promise<Product | null> {
+  const db = await getDatabase();
+  const current = await getProduct(id);
+  if (!current) return null;
+
+  const now = nowISO();
+  const name = input.name !== undefined ? input.name.trim() : current.name;
+  const cost =
+    input.cost !== undefined ? Math.max(0, Math.round(input.cost)) : current.cost;
+  const price =
+    input.price !== undefined ? Math.max(0, Math.round(input.price)) : current.price;
+  const stock =
+    input.stock !== undefined ? Math.max(0, Math.round(input.stock)) : current.stock;
+
+  await db.runAsync(
+    `UPDATE products
+     SET name = ?, cost = ?, price = ?, stock = ?, updated_at = ?
+     WHERE id = ?`,
+    [name, cost, price, stock, now, id],
+  );
+
+  return {
+    ...current,
+    name,
+    cost,
+    price,
+    stock,
+    updatedAt: now,
+  };
+}
+
+export async function adjustStock(
+  id: string,
+  delta: number,
+  newCost?: number,
+): Promise<Product | null> {
+  const db = await getDatabase();
+  const current = await getProduct(id);
+  if (!current) return null;
+
+  const nextStock = Math.max(0, current.stock + delta);
+  const cost =
+    newCost !== undefined && newCost > 0 ? Math.round(newCost) : current.cost;
+  const now = nowISO();
+
+  await db.runAsync(
+    'UPDATE products SET stock = ?, cost = ?, updated_at = ? WHERE id = ?',
+    [nextStock, cost, now, id],
+  );
+
+  // Jika restock (delta positif), catat pengeluaran ke kategori "Modal"
+  if (delta > 0 && cost > 0) {
+    try {
+      const modalCategory =
+        (await findCategoryByName('Modal', 'expense')) ??
+        (await listCategories()).find((c) => c.type === 'expense' || c.type === 'both');
+
+      if (modalCategory) {
+        await createTransaction({
+          categoryId: modalCategory.id,
+          type: 'expense',
+          amount: cost * delta,
+          note: `Restock modal ${current.name} (+${delta} pcs)`,
+          transactionDate: todayISO(),
+        });
+      }
+    } catch {
+      // Pencatatan transaksi tidak menggagalkan penambahan stok
+    }
+  }
+
+  return { ...current, stock: nextStock, cost, updatedAt: now };
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('DELETE FROM products WHERE id = ?', [id]);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sales                                                                      */
+/* -------------------------------------------------------------------------- */
+
+export async function recordSale(input: NewSaleInput): Promise<Sale> {
+  const db = await getDatabase();
+  const product = await getProduct(input.productId);
+  if (!product) {
+    throw new Error('Produk tidak ditemukan');
+  }
+
+  const quantity = Math.max(1, Math.round(input.quantity));
+  if (product.stock < quantity) {
+    throw new Error(`Stok ${product.name} tidak cukup (sisa ${product.stock} pcs)`);
+  }
+
+  const costPerUnit = product.cost;
+  const pricePerUnit =
+    input.pricePerUnit !== undefined && input.pricePerUnit >= 0
+      ? Math.round(input.pricePerUnit)
+      : product.price;
+
+  const totalPrice = pricePerUnit * quantity;
+  const totalCost = costPerUnit * quantity;
+  const totalProfit = totalPrice - totalCost;
+
+  const now = nowISO();
+  const saleId = createId();
+  const saleDate = input.saleDate ?? todayISO();
+  const note = input.note?.trim() ?? '';
+
+  await db.withTransactionAsync(async () => {
+    // 1. Decrease stock
+    const nextStock = product.stock - quantity;
+    await db.runAsync(
+      'UPDATE products SET stock = ?, updated_at = ? WHERE id = ?',
+      [nextStock, now, product.id],
+    );
+
+    // 2. Insert sale record
+    await db.runAsync(
+      `INSERT INTO sales
+        (id, product_id, product_name, quantity, cost_per_unit, price_per_unit,
+         total_price, total_profit, note, sale_date, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        saleId,
+        product.id,
+        product.name,
+        quantity,
+        costPerUnit,
+        pricePerUnit,
+        totalPrice,
+        totalProfit,
+        note,
+        saleDate,
+        now,
+      ],
+    );
+  });
+
+  // 3. Masukkan hasil penjualan ke kategori pemasukan "Bisnis"
+  if (input.recordAsIncome) {
+    try {
+      const bisnisCategory =
+        (await findCategoryByName('Bisnis', 'income')) ??
+        (await listCategories()).find((c) => c.type === 'income' || c.type === 'both');
+
+      if (bisnisCategory) {
+        await createTransaction({
+          categoryId: bisnisCategory.id,
+          type: 'income',
+          amount: totalPrice,
+          note: `Penjualan ${product.name} (${quantity} pcs)${note ? ` · ${note}` : ''}`,
+          transactionDate: saleDate,
+        });
+      }
+    } catch {
+      // Transaction recording failure should not block the sale itself
+    }
+  }
+
+  return {
+    id: saleId,
+    productId: product.id,
+    productName: product.name,
+    quantity,
+    costPerUnit,
+    pricePerUnit,
+    totalPrice,
+    totalProfit,
+    note,
+    saleDate,
+    createdAt: now,
+  };
+}
+
+export async function listSales(limit = 100): Promise<Sale[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<SaleRow>(
+    `SELECT * FROM sales
+     ORDER BY sale_date DESC, created_at DESC
+     LIMIT ?`,
+    [limit],
+  );
+  return rows.map(mapSale);
+}
+
+export async function deleteSale(
+  id: string,
+  restoreStock = true,
+): Promise<void> {
+  const db = await getDatabase();
+  const saleRow = await db.getFirstAsync<SaleRow>(
+    'SELECT * FROM sales WHERE id = ?',
+    [id],
+  );
+  if (!saleRow) return;
+
+  await db.withTransactionAsync(async () => {
+    if (restoreStock && saleRow.product_id) {
+      await db.runAsync(
+        'UPDATE products SET stock = stock + ?, updated_at = ? WHERE id = ?',
+        [saleRow.quantity, nowISO(), saleRow.product_id],
+      );
+    }
+    await db.runAsync('DELETE FROM sales WHERE id = ?', [id]);
+  });
+}
+
+export async function getInventorySummary(): Promise<InventorySummary> {
+  const db = await getDatabase();
+
+  const productStats = await db.getFirstAsync<{
+    total_products: number;
+    total_stock: number;
+    capital_value: number;
+    estimated_revenue: number;
+  }>(
+    `SELECT
+       COUNT(*) AS total_products,
+       COALESCE(SUM(stock), 0) AS total_stock,
+       COALESCE(SUM(cost * stock), 0) AS capital_value,
+       COALESCE(SUM(price * stock), 0) AS estimated_revenue
+     FROM products`,
+  );
+
+  const saleStats = await db.getFirstAsync<{
+    total_profit: number;
+    total_revenue: number;
+    total_count: number;
+  }>(
+    `SELECT
+       COALESCE(SUM(total_profit), 0) AS total_profit,
+       COALESCE(SUM(total_price), 0) AS total_revenue,
+       COUNT(*) AS total_count
+     FROM sales`,
+  );
+
+  return {
+    totalProducts: Number(productStats?.total_products ?? 0),
+    totalStockUnits: Number(productStats?.total_stock ?? 0),
+    totalCapitalValue: Number(productStats?.capital_value ?? 0),
+    totalEstimatedRevenue: Number(productStats?.estimated_revenue ?? 0),
+    totalRealizedProfit: Number(saleStats?.total_profit ?? 0),
+    totalSalesRevenue: Number(saleStats?.total_revenue ?? 0),
+    totalSalesCount: Number(saleStats?.total_count ?? 0),
+  };
 }
 

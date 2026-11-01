@@ -6,6 +6,7 @@ export const queryKeys = {
     ['transactions', filters ?? 'all'] as const,
   transaction: (id: string) => ['transaction', id] as const,
   summary: (month: string) => ['summary', month] as const,
+  totalSummary: ['total-summary'] as const,
   breakdown: (month: string, type: string) =>
     ['breakdown', month, type] as const,
   trend: (month: string) => ['trend', month] as const,
@@ -13,16 +14,25 @@ export const queryKeys = {
   budget: ['budget'] as const,
   pending: ['pending'] as const,
   lastSync: ['last-sync'] as const,
+  products: ['products'] as const,
+  product: (id: string) => ['product', id] as const,
+  sales: ['sales'] as const,
+  inventorySummary: ['inventory-summary'] as const,
 };
 
 export function invalidateLocalData(): void {
   queryClient.invalidateQueries({ queryKey: ['transactions'] });
   queryClient.invalidateQueries({ queryKey: ['transaction'] });
   queryClient.invalidateQueries({ queryKey: ['summary'] });
+  queryClient.invalidateQueries({ queryKey: ['total-summary'] });
   queryClient.invalidateQueries({ queryKey: ['breakdown'] });
   queryClient.invalidateQueries({ queryKey: ['trend'] });
   queryClient.invalidateQueries({ queryKey: ['months'] });
   queryClient.invalidateQueries({ queryKey: ['budget'] });
   queryClient.invalidateQueries({ queryKey: ['pending'] });
   queryClient.invalidateQueries({ queryKey: ['last-sync'] });
+  queryClient.invalidateQueries({ queryKey: ['products'] });
+  queryClient.invalidateQueries({ queryKey: ['product'] });
+  queryClient.invalidateQueries({ queryKey: ['sales'] });
+  queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
 }

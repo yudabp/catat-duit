@@ -21,6 +21,7 @@ import { categoriesRouter } from "./modules/categories/categories.routes.js";
 import { exportRouter } from "./modules/export/export.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { meRouter } from "./modules/me/me.routes.js";
+import { productsRouter } from "./modules/products/products.routes.js";
 import { transactionsRouter } from "./modules/transactions/transactions.routes.js";
 
 function isAllowedOrigin(origin: string): boolean {
@@ -164,6 +165,7 @@ export function createApp(): express.Express {
   app.use("/api/v1/categories", categoriesRouter);
   app.use("/api/v1/transactions", transactionsRouter);
   app.use("/api/v1/budgets", budgetsRouter);
+  app.use("/api/v1/products", productsRouter);
   app.use("/api/v1/analytics", analyticsRouter);
   app.use("/api/v1/export", exportRouter);
 

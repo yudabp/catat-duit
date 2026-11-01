@@ -4,10 +4,15 @@ import {
   getBudget,
   getCategoryBreakdown,
   getDailyTrend,
+  getInventorySummary,
   getLastSyncAt,
   getMonthSummary,
+  getProduct,
+  getTotalSummary,
   getTransaction,
   listCategories,
+  listProducts,
+  listSales,
   listTransactions,
   pendingOperationCount,
 } from '@/data/repository';
@@ -40,6 +45,13 @@ export function useMonthSummary(month: string) {
   return useQuery({
     queryKey: queryKeys.summary(month),
     queryFn: () => getMonthSummary(month),
+  });
+}
+
+export function useTotalSummary() {
+  return useQuery({
+    queryKey: queryKeys.totalSummary,
+    queryFn: getTotalSummary,
   });
 }
 
@@ -85,5 +97,34 @@ export function useLastSyncAt() {
   return useQuery({
     queryKey: queryKeys.lastSync,
     queryFn: getLastSyncAt,
+  });
+}
+
+export function useProducts() {
+  return useQuery({
+    queryKey: queryKeys.products,
+    queryFn: listProducts,
+  });
+}
+
+export function useProduct(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.product(id ?? ''),
+    queryFn: () => getProduct(id as string),
+    enabled: Boolean(id),
+  });
+}
+
+export function useSales(limit = 100) {
+  return useQuery({
+    queryKey: queryKeys.sales,
+    queryFn: () => listSales(limit),
+  });
+}
+
+export function useInventorySummary() {
+  return useQuery({
+    queryKey: queryKeys.inventorySummary,
+    queryFn: getInventorySummary,
   });
 }

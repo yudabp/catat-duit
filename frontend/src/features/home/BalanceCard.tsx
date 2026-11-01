@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  CalendarDays,
   Target,
   TriangleAlert,
 } from 'lucide-react-native';
@@ -15,6 +16,7 @@ import { formatPercent, formatRupiah } from '@/utils/format';
 
 type BalanceCardProps = {
   summary: MonthSummary;
+  totalSummary?: MonthSummary;
   month: string;
   budget: Budget | null | undefined;
   onBudgetPress: () => void;
@@ -30,11 +32,16 @@ function moneySize(value: number): number {
 
 export function BalanceCard({
   summary,
+  totalSummary,
   month,
   budget,
   onBudgetPress,
   onMonthPress,
 }: BalanceCardProps) {
+  const [viewMode, setViewMode] = useState<'month' | 'total'>('month');
+  const activeSummary =
+    viewMode === 'total' && totalSummary ? totalSummary : summary;
+
   const used = budget?.period === 'daily' ? summary.todayExpense : summary.expense;
   const percent = budget && budget.amount > 0 ? (used / budget.amount) * 100 : 0;
   const remaining = budget ? budget.amount - used : 0;
@@ -44,29 +51,66 @@ export function BalanceCard({
   return (
     <View
       accessible
-      accessibilityLabel={`Sisa uang bulan ${formatMonthLabel(month)} ${formatRupiah(
-        summary.balance,
-      )}. Masuk ${formatRupiah(summary.income)}, keluar ${formatRupiah(
-        summary.expense,
+      accessibilityLabel={`Saldo ${viewMode === 'month' ? `bulan ${formatMonthLabel(month)}` : 'total keseluruhan'} ${formatRupiah(
+        activeSummary.balance,
+      )}. Masuk ${formatRupiah(activeSummary.income)}, keluar ${formatRupiah(
+        activeSummary.expense,
       )}.`}
       style={styles.card}
     >
       <View style={styles.header}>
-        <AppText variant="labelSm" weight="semiBold" color={colors.onPrimary}>
-          Sisa uang bulan ini
-        </AppText>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Lihat rekap bulan di tab analisis"
-          onPress={onMonthPress}
-          hitSlop={6}
-          style={({ pressed }) => [styles.monthChip, { opacity: pressed ? 0.7 : 1 }]}
-        >
-          <CalendarDays size={12} color={colors.primary} />
-          <AppText variant="labelSm" weight="semiBold" color={colors.primary}>
-            {formatMonthLabel(month)}
+        <View style={styles.headerLeft}>
+          <AppText variant="labelSm" weight="semiBold" color={colors.onPrimary}>
+            Saldo
           </AppText>
-        </Pressable>
+          <AppText variant="labelSm" color={colors.onPrimary} style={{ opacity: 0.8 }}>
+            {viewMode === 'month' ? formatMonthLabel(month) : 'Total Semua Waktu'}
+          </AppText>
+        </View>
+
+        <View style={styles.togglePillGroup}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tampilkan saldo bulan ini"
+            onPress={() => {
+              void Haptics.selectionAsync();
+              setViewMode('month');
+            }}
+            style={[
+              styles.togglePill,
+              viewMode === 'month' ? styles.togglePillActive : null,
+            ]}
+          >
+            <AppText
+              variant="labelSm"
+              weight="semiBold"
+              color={viewMode === 'month' ? colors.primary : colors.canvas}
+            >
+              Bulan ini
+            </AppText>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tampilkan total saldo keseluruhan"
+            onPress={() => {
+              void Haptics.selectionAsync();
+              setViewMode('total');
+            }}
+            style={[
+              styles.togglePill,
+              viewMode === 'total' ? styles.togglePillActive : null,
+            ]}
+          >
+            <AppText
+              variant="labelSm"
+              weight="semiBold"
+              color={viewMode === 'total' ? colors.primary : colors.canvas}
+            >
+              Total
+            </AppText>
+          </Pressable>
+        </View>
       </View>
 
       <AppText
@@ -75,9 +119,9 @@ export function BalanceCard({
         tabular
         numberOfLines={1}
         adjustsFontSizeToFit
-        style={{ fontSize: moneySize(summary.balance), lineHeight: moneySize(summary.balance) + 4 }}
+        style={{ fontSize: moneySize(activeSummary.balance), lineHeight: moneySize(activeSummary.balance) + 4 }}
       >
-        {formatRupiah(summary.balance)}
+        {formatRupiah(activeSummary.balance)}
       </AppText>
 
       <View style={styles.totals}>
@@ -89,7 +133,7 @@ export function BalanceCard({
             </AppText>
           </View>
           <AppText variant="bodyMd" weight="semiBold" color={colors.canvas} tabular>
-            {formatRupiah(summary.income)}
+            {formatRupiah(activeSummary.income)}
           </AppText>
         </View>
         <View style={[styles.totalCell, styles.totalDivider]}>
@@ -100,7 +144,7 @@ export function BalanceCard({
             </AppText>
           </View>
           <AppText variant="bodyMd" weight="semiBold" color={colors.canvas} tabular>
-            {formatRupiah(summary.expense)}
+            {formatRupiah(activeSummary.expense)}
           </AppText>
         </View>
       </View>
@@ -111,6 +155,7 @@ export function BalanceCard({
             <View style={styles.budgetHeader}>
               <AppText variant="labelSm" weight="medium" color={colors.onPrimary}>
                 Batas {budget.period === 'daily' ? 'harian' : 'bulanan'}
+                {viewMode === 'total' ? ' (bulan ini)' : ''}
               </AppText>
               <AppText variant="labelSm" weight="semiBold" color={colors.canvas}>
                 {formatPercent(percent)} terpakai
@@ -179,19 +224,28 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: space.md,
+    marginBottom: space.lg,
   },
-  monthChip: {
+  headerLeft: {
+    gap: 2,
+  },
+  togglePillGroup: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
+    backgroundColor: colors.primaryActive,
     borderRadius: radii.pill,
+    padding: 3,
+    gap: 2,
+  },
+  togglePill: {
+    paddingHorizontal: space.md,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+  },
+  togglePillActive: {
     backgroundColor: colors.mint,
-    flexShrink: 0,
   },
   totals: {
     flexDirection: 'row',

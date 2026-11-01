@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import {
   ArrowDownLeft,
@@ -17,13 +18,15 @@ import { Card } from '@/components/Card';
 import { DonutChart } from '@/components/DonutChart';
 import { EmptyState } from '@/components/EmptyState';
 import { LineChart } from '@/components/LineChart';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import {
   useAvailableMonths,
   useCategoryBreakdown,
   useDailyTrend,
   useMonthSummary,
+  useTotalSummary,
 } from '@/hooks/useData';
-import type { MonthSummary } from '@/data/types';
+import type { MonthSummary, TransactionType } from '@/data/types';
 import { colors, radii, space } from '@/theme/tokens';
 import {
   currentMonthKey,
@@ -45,14 +48,16 @@ const EMPTY_SUMMARY: MonthSummary = {
 };
 
 type WarningLevel = 'safe' | 'warning' | 'over';
+type Timeframe = 'monthly' | 'total';
 
-function getWarning(summary: MonthSummary) {
+function getWarning(summary: MonthSummary, isAllTime = false) {
+  const periodLabel = isAllTime ? 'seluruh waktu' : 'bulan ini';
   if (summary.expense === 0) {
     return {
       level: 'safe' as WarningLevel,
       ratio: 0,
       title: 'Keuangan aman',
-      detail: 'Belum ada pengeluaran bulan ini.',
+      detail: `Belum ada pengeluaran ${periodLabel}.`,
     };
   }
   if (summary.income <= 0) {
@@ -60,7 +65,7 @@ function getWarning(summary: MonthSummary) {
       level: 'over' as WarningLevel,
       ratio: null,
       title: 'Lewat batas',
-      detail: `Belum ada pemasukan bulan ini, tetapi pengeluaran sudah ${formatRupiah(
+      detail: `Belum ada pemasukan ${periodLabel}, tetapi pengeluaran sudah ${formatRupiah(
         summary.expense,
       )}.`,
     };
@@ -82,7 +87,7 @@ function getWarning(summary: MonthSummary) {
       level: 'warning' as WarningLevel,
       ratio,
       title: 'Hampir boncos',
-      detail: `Pengeluaran ${rounded}% dari pemasukan. Sisa ${formatRupiah(
+      detail: `Pengeluaran ${rounded}% dari pemasukan. Sisa saldo ${formatRupiah(
         summary.balance,
       )}.`,
     };
@@ -91,7 +96,7 @@ function getWarning(summary: MonthSummary) {
     level: 'safe' as WarningLevel,
     ratio,
     title: 'Keuangan aman',
-    detail: `Pengeluaran ${rounded}% dari pemasukan. Sisa ${formatRupiah(
+    detail: `Pengeluaran ${rounded}% dari pemasukan. Sisa saldo ${formatRupiah(
       summary.balance,
     )}.`,
   };
@@ -151,7 +156,7 @@ function WarningCard({
 
 function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <View>
+    <View style={styles.titleTextWrap}>
       <AppText variant="bodyLg" style={styles.sectionTitle}>
         {title}
       </AppText>
@@ -163,15 +168,27 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) 
 }
 
 export default function AnalyticsScreen() {
+  const [timeframe, setTimeframe] = useState<Timeframe>('monthly');
   const [month, setMonth] = useState(currentMonthKey());
+  const [breakdownType, setBreakdownType] = useState<TransactionType>('expense');
+  const [trendType, setTrendType] = useState<TransactionType>('expense');
+
   const { data: months } = useAvailableMonths();
-  const { data: summary } = useMonthSummary(month);
-  const { data: breakdown } = useCategoryBreakdown(month, 'expense');
+  const { data: monthlySummary } = useMonthSummary(month);
+  const { data: totalSummary } = useTotalSummary();
+
+  const isAllTime = timeframe === 'total';
+  const activeMonthParam = isAllTime ? 'all' : month;
+
+  const { data: breakdown } = useCategoryBreakdown(activeMonthParam, breakdownType);
   const { data: trend } = useDailyTrend(month);
 
-  const safeSummary = summary ?? { ...EMPTY_SUMMARY, month };
-  const warning = getWarning(safeSummary);
-  const balance = safeSummary.balance;
+  const safeMonthlySummary = monthlySummary ?? { ...EMPTY_SUMMARY, month };
+  const safeTotalSummary = totalSummary ?? { ...EMPTY_SUMMARY, month: 'all' };
+  const activeSummary = isAllTime ? safeTotalSummary : safeMonthlySummary;
+
+  const warning = getWarning(activeSummary, isAllTime);
+  const balance = activeSummary.balance;
 
   const monthIndex = months?.findIndex((item) => item.month === month) ?? -1;
   const canGoOlder = Boolean(
@@ -188,42 +205,51 @@ export default function AnalyticsScreen() {
     setMonth(months[monthIndex - 1]!.month);
   };
 
+  // Daily Trend calculation for monthly view
   const trendDays = trend?.days ?? [];
   const trendPoints = trendDays.map((day) => ({
-    value: day.expense,
+    value: trendType === 'expense' ? day.expense : day.income,
     label: String(dayNumber(day.date)),
   }));
-  const trendTotal = trend?.totalExpense ?? 0;
+  const trendTotal = trendDays.reduce(
+    (sum, day) => sum + (trendType === 'expense' ? day.expense : day.income),
+    0,
+  );
   const elapsedDays =
     month === currentMonthKey()
       ? Math.max(1, Number(todayISO().slice(8, 10)))
       : Math.max(1, trendDays.length);
   const dailyAverage = Math.round(trendTotal / elapsedDays);
+
   const highest = trendDays.reduce<{
     date: string;
     value: number;
     index: number;
   } | null>((best, day, index) => {
-    if (day.expense <= 0) return best;
-    if (!best || day.expense > best.value) {
-      return { date: day.date, value: day.expense, index };
+    const val = trendType === 'expense' ? day.expense : day.income;
+    if (val <= 0) return best;
+    if (!best || val > best.value) {
+      return { date: day.date, value: val, index };
     }
     return best;
   }, null);
+
   const labelIndexes = [0, 7, 14, 21, 28].filter(
     (index) => index < trendPoints.length,
   );
 
+  // Comparison Masuk vs Keluar
   const comparisonMax = Math.max(
-    safeSummary.income,
-    safeSummary.expense,
+    activeSummary.income,
+    activeSummary.expense,
     1,
   );
-  const incomeWidth = (safeSummary.income / comparisonMax) * 100;
-  const expenseWidth = (safeSummary.expense / comparisonMax) * 100;
+  const incomeWidth = (activeSummary.income / comparisonMax) * 100;
+  const expenseWidth = (activeSummary.expense / comparisonMax) * 100;
 
   return (
     <AppScaffold>
+      {/* Header */}
       <View>
         <AppText
           variant="labelSm"
@@ -231,56 +257,88 @@ export default function AnalyticsScreen() {
           color={colors.textSubtle}
           style={styles.eyebrow}
         >
-          REKAP & GRAFIK
+          REKAP & ANALISIS KEUANGAN
         </AppText>
         <AppText variant="headingSm" style={styles.title}>
           Analisis
         </AppText>
         <AppText variant="bodySm" color={colors.textMuted}>
-          Lihat ke mana uangmu pergi dan jaga agar tidak boncos.
+          Grafik pemasukan, pengeluaran, dan rekap keuangan bulanan maupun total.
         </AppText>
       </View>
 
-      <Card style={styles.monthCard} padded={false}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Bulan sebelumnya"
-          onPress={goOlder}
-          disabled={!canGoOlder}
-          style={({ pressed }) => [
-            styles.monthButton,
-            { opacity: !canGoOlder ? 0.35 : pressed ? 0.6 : 1 },
+      {/* Pilihan Periode: Bulanan vs Total Keseluruhan */}
+      <View style={styles.timeframeSection}>
+        <SegmentedControl
+          label="Pilih periode rekap"
+          value={timeframe}
+          onChange={(val) => {
+            void Haptics.selectionAsync();
+            setTimeframe(val as Timeframe);
+          }}
+          options={[
+            { value: 'monthly', label: 'Bulanan' },
+            { value: 'total', label: 'Total Keseluruhan' },
           ]}
-        >
-          <ChevronLeft size={20} color={colors.textMuted} />
-        </Pressable>
-        <View style={styles.monthCopy} accessibilityLiveRegion="polite">
-          <AppText variant="bodyLg" style={styles.monthLabel}>
-            {formatMonthLabel(month)}
+        />
+      </View>
+
+      {/* Selector Bulan (untuk Bulanan) atau Banner Semua Waktu */}
+      {!isAllTime ? (
+        <Card style={styles.monthCard} padded={false}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Bulan sebelumnya"
+            onPress={goOlder}
+            disabled={!canGoOlder}
+            style={({ pressed }) => [
+              styles.monthButton,
+              { opacity: !canGoOlder ? 0.35 : pressed ? 0.6 : 1 },
+            ]}
+          >
+            <ChevronLeft size={20} color={colors.textMuted} />
+          </Pressable>
+          <View style={styles.monthCopy} accessibilityLiveRegion="polite">
+            <AppText variant="bodyLg" style={styles.monthLabel}>
+              {formatMonthLabel(month)}
+            </AppText>
+            <AppText variant="labelSm" color={colors.textMuted}>
+              Rekap bulanan
+            </AppText>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Bulan berikutnya"
+            onPress={goNewer}
+            disabled={!canGoNewer}
+            style={({ pressed }) => [
+              styles.monthButton,
+              { opacity: !canGoNewer ? 0.35 : pressed ? 0.6 : 1 },
+            ]}
+          >
+            <ChevronRight size={20} color={colors.textMuted} />
+          </Pressable>
+        </Card>
+      ) : (
+        <Card style={styles.allTimeCard}>
+          <AppText variant="bodyMd" weight="bold">
+            Total Seluruh Waktu
           </AppText>
           <AppText variant="labelSm" color={colors.textMuted}>
-            Rekap bulanan
+            Akumulasi semua catatan keuangan sejak pertama kali dicatat
           </AppText>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Bulan berikutnya"
-          onPress={goNewer}
-          disabled={!canGoNewer}
-          style={({ pressed }) => [
-            styles.monthButton,
-            { opacity: !canGoNewer ? 0.35 : pressed ? 0.6 : 1 },
-          ]}
-        >
-          <ChevronRight size={20} color={colors.textMuted} />
-        </Pressable>
-      </Card>
+        </Card>
+      )}
 
-      {safeSummary.transactionCount === 0 ? (
+      {activeSummary.transactionCount === 0 ? (
         <View style={styles.empty}>
           <EmptyState
             icon={ReceiptText}
-            title={`Belum ada catatan di ${formatMonthLabel(month)}`}
+            title={
+              isAllTime
+                ? 'Belum ada catatan transaksi'
+                : `Belum ada catatan di ${formatMonthLabel(month)}`
+            }
             description="Pilih bulan lain, atau catat transaksi pertamamu untuk melihat grafik dan rekap."
             actionLabel="Catat sekarang"
             onAction={() => router.navigate('/')}
@@ -288,17 +346,18 @@ export default function AnalyticsScreen() {
         </View>
       ) : (
         <>
+          {/* Card Ringkasan Saldo & Arus Kas */}
           <View
             accessible
-            accessibilityLabel={`Ringkasan ${formatMonthLabel(
-              month,
-            )}. Sisa ${formatRupiah(balance)}, pemasukan ${formatRupiah(
-              safeSummary.income,
-            )}, pengeluaran ${formatRupiah(safeSummary.expense)}.`}
+            accessibilityLabel={`Ringkasan ${
+              isAllTime ? 'semua waktu' : formatMonthLabel(month)
+            }. Saldo ${formatRupiah(balance)}, pemasukan ${formatRupiah(
+              activeSummary.income,
+            )}, pengeluaran ${formatRupiah(activeSummary.expense)}.`}
             style={styles.summaryCard}
           >
             <AppText variant="labelSm" weight="semiBold" color={colors.onPrimary}>
-              Sisa uang bulan ini
+              {isAllTime ? 'Total Saldo Keseluruhan' : 'Sisa Uang Bulan Ini'}
             </AppText>
             <AppText
               variant="headingMd"
@@ -315,38 +374,60 @@ export default function AnalyticsScreen() {
                 <View style={styles.summaryLabel}>
                   <ArrowDownLeft size={12} color={colors.onPrimary} />
                   <AppText variant="labelSm" weight="medium" color={colors.onPrimary}>
-                    Masuk
+                    Total Masuk
                   </AppText>
                 </View>
                 <AppText variant="bodyMd" weight="semiBold" color={colors.canvas} tabular>
-                  {formatRupiah(safeSummary.income)}
+                  {formatRupiah(activeSummary.income)}
                 </AppText>
               </View>
               <View style={[styles.summaryCell, styles.summaryDivider]}>
                 <View style={styles.summaryLabel}>
                   <ArrowUpRight size={12} color={colors.onPrimary} />
                   <AppText variant="labelSm" weight="medium" color={colors.onPrimary}>
-                    Keluar
+                    Total Keluar
                   </AppText>
                 </View>
                 <AppText variant="bodyMd" weight="semiBold" color={colors.canvas} tabular>
-                  {formatRupiah(safeSummary.expense)}
+                  {formatRupiah(activeSummary.expense)}
                 </AppText>
               </View>
             </View>
           </View>
 
+          {/* Kartu Status Peringatan / Evaluasi Keuangan */}
           <WarningCard
             level={warning.level}
             title={warning.title}
             detail={warning.detail}
           />
 
+          {/* Section 1: Grafik Kategori (Pemasukan & Pengeluaran) */}
           <View style={styles.section}>
-            <SectionTitle
-              title="Pengeluaran per kategori"
-              subtitle={formatMonthLabel(month)}
-            />
+            <View style={styles.sectionHeaderRow}>
+              <SectionTitle
+                title={
+                  breakdownType === 'expense'
+                    ? 'Pengeluaran per kategori'
+                    : 'Pemasukan per kategori'
+                }
+                subtitle={isAllTime ? 'Total keseluruhan' : formatMonthLabel(month)}
+              />
+              <SegmentedControl
+                label="Pilih jenis grafik kategori"
+                value={breakdownType}
+                onChange={(val) => {
+                  void Haptics.selectionAsync();
+                  setBreakdownType(val as TransactionType);
+                }}
+                options={[
+                  { value: 'expense', label: 'Keluar' },
+                  { value: 'income', label: 'Masuk' },
+                ]}
+                style={styles.inlineSegment}
+              />
+            </View>
+
             <Card style={styles.sectionCard}>
               {breakdown && breakdown.items.length > 0 ? (
                 <>
@@ -355,7 +436,11 @@ export default function AnalyticsScreen() {
                       items={breakdown.items}
                       total={breakdown.total}
                       size={148}
-                      label="Pengeluaran per kategori"
+                      label={
+                        breakdownType === 'expense'
+                          ? 'Pengeluaran kategori'
+                          : 'Pemasukan kategori'
+                      }
                     />
                   </View>
                   <View style={styles.legendGrid}>
@@ -390,54 +475,96 @@ export default function AnalyticsScreen() {
                 <EmptyState
                   compact
                   icon={ReceiptText}
-                  title="Belum ada pengeluaran"
-                  description={`Tidak ada pengeluaran per kategori di ${formatMonthLabel(month)}.`}
+                  title={`Belum ada ${breakdownType === 'expense' ? 'pengeluaran' : 'pemasukan'}`}
+                  description={`Tidak ada transaksi ${
+                    breakdownType === 'expense' ? 'keluar' : 'masuk'
+                  } per kategori di ${isAllTime ? 'seluruh waktu' : formatMonthLabel(month)}.`}
                 />
               )}
             </Card>
           </View>
 
-          <View style={styles.section}>
-            <SectionTitle title="Tren harian" subtitle={formatMonthLabel(month)} />
-            <Card style={styles.sectionCard}>
-              <View style={styles.metricRow}>
-                <View style={styles.metricCell}>
-                  <AppText variant="labelSm" color={colors.textMuted}>
-                    Rata-rata/hari
-                  </AppText>
-                  <AppText variant="bodyMd" weight="semiBold" tabular style={styles.metricValue}>
-                    {formatRupiah(dailyAverage)}
-                  </AppText>
-                </View>
-                <View style={[styles.metricCell, styles.metricDivider]}>
-                  <AppText variant="labelSm" color={colors.textMuted}>
-                    Tertinggi
-                  </AppText>
-                  <AppText variant="bodyMd" weight="semiBold" tabular style={styles.metricValue}>
-                    {formatRupiah(highest?.value ?? 0)}
-                  </AppText>
-                </View>
+          {/* Section 2: Grafik Tren Harian (Hanya di mode Bulanan) */}
+          {!isAllTime ? (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <SectionTitle
+                  title={
+                    trendType === 'expense'
+                      ? 'Tren harian keluar'
+                      : 'Tren harian masuk'
+                  }
+                  subtitle={formatMonthLabel(month)}
+                />
+                <SegmentedControl
+                  label="Pilih jenis tren harian"
+                  value={trendType}
+                  onChange={(val) => {
+                    void Haptics.selectionAsync();
+                    setTrendType(val as TransactionType);
+                  }}
+                  options={[
+                    { value: 'expense', label: 'Keluar' },
+                    { value: 'income', label: 'Masuk' },
+                  ]}
+                  style={styles.inlineSegment}
+                />
               </View>
-              {trendPoints.length > 0 ? (
-                <View style={styles.chart}>
-                  <LineChart
-                    points={trendPoints}
-                    height={120}
-                    labelIndexes={labelIndexes}
-                    highlightIndex={highest?.index}
-                    accessibilityLabel={`Tren pengeluaran harian ${formatMonthLabel(
-                      month,
-                    )}. Rata-rata ${formatRupiah(
-                      dailyAverage,
-                    )} per hari, tertinggi ${formatRupiah(highest?.value ?? 0)}.`}
-                  />
-                </View>
-              ) : null}
-            </Card>
-          </View>
 
+              <Card style={styles.sectionCard}>
+                <View style={styles.metricRow}>
+                  <View style={styles.metricCell}>
+                    <AppText variant="labelSm" color={colors.textMuted}>
+                      Rata-rata/hari
+                    </AppText>
+                    <AppText variant="bodyMd" weight="semiBold" tabular style={styles.metricValue}>
+                      {formatRupiah(dailyAverage)}
+                    </AppText>
+                  </View>
+                  <View style={[styles.metricCell, styles.metricDivider]}>
+                    <AppText variant="labelSm" color={colors.textMuted}>
+                      {trendType === 'expense' ? 'Keluar Tertinggi' : 'Masuk Tertinggi'}
+                    </AppText>
+                    <AppText variant="bodyMd" weight="semiBold" tabular style={styles.metricValue}>
+                      {formatRupiah(highest?.value ?? 0)}
+                    </AppText>
+                  </View>
+                </View>
+
+                {trendPoints.length > 0 && trendTotal > 0 ? (
+                  <View style={styles.chart}>
+                    <LineChart
+                      points={trendPoints}
+                      height={120}
+                      lineColor={trendType === 'expense' ? colors.pink : colors.primary}
+                      fillColor={trendType === 'expense' ? '#FCE7F3' : colors.mint}
+                      labelIndexes={labelIndexes}
+                      highlightIndex={highest?.index}
+                      accessibilityLabel={`Tren ${
+                        trendType === 'expense' ? 'pengeluaran' : 'pemasukan'
+                      } harian ${formatMonthLabel(month)}.`}
+                    />
+                  </View>
+                ) : (
+                  <EmptyState
+                    compact
+                    icon={ReceiptText}
+                    title={`Belum ada ${trendType === 'expense' ? 'pengeluaran' : 'pemasukan'}`}
+                    description={`Tidak ada pergerakan ${
+                      trendType === 'expense' ? 'uang keluar' : 'uang masuk'
+                    } di bulan ${formatMonthLabel(month)}.`}
+                  />
+                )}
+              </Card>
+            </View>
+          ) : null}
+
+          {/* Section 3: Perbandingan Masuk vs Keluar */}
           <View style={styles.section}>
-            <SectionTitle title="Masuk vs keluar" subtitle={formatMonthLabel(month)} />
+            <SectionTitle
+              title="Perbandingan Masuk vs Keluar"
+              subtitle={isAllTime ? 'Total akumulasi seluruh waktu' : formatMonthLabel(month)}
+            />
             <Card style={styles.sectionCard}>
               <View>
                 <View style={styles.flowHeader}>
@@ -448,7 +575,7 @@ export default function AnalyticsScreen() {
                     </AppText>
                   </View>
                   <AppText variant="bodySm" weight="semiBold" tabular>
-                    {formatRupiah(safeSummary.income)}
+                    {formatRupiah(activeSummary.income)}
                   </AppText>
                 </View>
                 <View style={styles.flowTrack}>
@@ -460,6 +587,7 @@ export default function AnalyticsScreen() {
                   />
                 </View>
               </View>
+
               <View style={styles.flowSecondRow}>
                 <View style={styles.flowHeader}>
                   <View style={styles.flowLabel}>
@@ -469,7 +597,7 @@ export default function AnalyticsScreen() {
                     </AppText>
                   </View>
                   <AppText variant="bodySm" weight="semiBold" tabular>
-                    {formatRupiah(safeSummary.expense)}
+                    {formatRupiah(activeSummary.expense)}
                   </AppText>
                 </View>
                 <View style={styles.flowTrack}>
@@ -496,8 +624,11 @@ const styles = StyleSheet.create({
   title: {
     marginTop: 2,
   },
-  monthCard: {
+  timeframeSection: {
     marginTop: space.lg,
+  },
+  monthCard: {
+    marginTop: space.md,
     padding: space.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -522,6 +653,13 @@ const styles = StyleSheet.create({
   monthLabel: {
     fontFamily: 'CalSans-Medium',
     textAlign: 'center',
+  },
+  allTimeCard: {
+    marginTop: space.md,
+    padding: space.lg,
+    backgroundColor: colors.surfaceSubtle,
+    alignItems: 'center',
+    gap: 2,
   },
   empty: {
     marginTop: space.xl,
@@ -574,11 +712,23 @@ const styles = StyleSheet.create({
   section: {
     marginTop: space.xxl,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.md,
+  },
+  titleTextWrap: {
+    flex: 1,
+  },
+  inlineSegment: {
+    maxWidth: 160,
+  },
   sectionTitle: {
     fontFamily: 'CalSans-Medium',
   },
   sectionCard: {
-    marginTop: space.lg,
+    marginTop: space.md,
   },
   donutWrap: {
     alignItems: 'center',
@@ -637,25 +787,24 @@ const styles = StyleSheet.create({
   },
   flowHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: space.md,
+    marginBottom: space.xs,
   },
   flowLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.xs,
+    gap: space.sm,
   },
   flowDot: {
-    width: 8,
-    height: 8,
+    width: 10,
+    height: 10,
     borderRadius: radii.pill,
   },
   flowTrack: {
-    marginTop: space.md,
     height: 8,
-    borderRadius: radii.pill,
     backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.pill,
     overflow: 'hidden',
   },
   flowFill: {
@@ -663,6 +812,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   flowSecondRow: {
-    marginTop: space.xl,
+    marginTop: space.lg,
   },
 });

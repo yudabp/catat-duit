@@ -34,6 +34,7 @@ Orang yang sebelumnya mencatat keuangan pakai Excel/spreadsheet dan ingin cara y
 | F6 | Akun pengguna | Daftar, login, logout, reset password |
 | F7 | Sinkronisasi ke server | Simpan otomatis, muat ulang data, indikator status koneksi |
 | F8 | Pengaturan | Profil, batas pengeluaran, ekspor data |
+| F9 | Produk, stok & penjualan (bisnis sampingan) | Tambah produk kartu SIM, modal beli, harga jual, kelola stok/restock, catat penjualan, hitung profit otomatis, dan dashboard aset/keuntungan |
 
 ### Kebutuhan Non-Fungsional
 - **Cepat:** satu transaksi selesai < 10 detik; aplikasi terbuka < 3 detik.
@@ -74,17 +75,17 @@ Kelompokkan setiap transaksi agar mudah dipahami dan dianalisis.
 - **Tambah Kategori Sendiri** — Buat kategori baru sesuai kebiasaan belanja.
 - **Ikon & Warna Kategori** — Tanda visual supaya kategori mudah dikenali sekilas.
 
-### Fase 3 — Grafik Pengeluaran `[high]`
-Lihat pola pengeluaran dalam bentuk grafik yang gampang dibaca.
-- **Grafik per Kategori** — Ketahui kategori mana yang paling menghabiskan uang.
-- **Tren Harian** — Pantau naik turun pengeluaran dari hari ke hari.
-- **Pemasukan vs Pengeluaran** — Bandingkan uang masuk dan keluar dalam satu tampilan.
+### Fase 3 — Grafik & Analisis Keuangan `[high]`
+Lihat pola keuangan dalam bentuk grafik yang gampang dibaca, baik untuk pengeluaran maupun pemasukan.
+- **Grafik per Kategori (Pemasukan & Pengeluaran)** — Ketahui kategori mana yang paling menghasilkan dan paling menghabiskan uang via diagram donat & rincian persentase.
+- **Tren Harian (Keluar & Masuk)** — Pantau naik turun arus kas harian untuk pengeluaran maupun pemasukan.
+- **Pemasukan vs Pengeluaran** — Bandingkan uang masuk dan keluar secara visual dalam satu tampilan.
 
-### Fase 3 — Rekap Bulanan `[high]`
-Ringkasan kondisi keuangan tiap bulan supaya tidak boncos.
-- **Ringkasan Total Bulan** — Total pemasukan, pengeluaran, dan sisa uang bulan ini.
-- **Pilih Bulan** — Geser ke bulan lain untuk melihat rekap sebelumnya.
-- **Peringatan Boncos** — Tanda peringatan saat pengeluaran mendekati (mis. 80%) atau melewati pemasukan.
+### Fase 3 — Rekap Keuangan (Bulanan & Total Keseluruhan) `[high]`
+Ringkasan kondisi keuangan per bulan maupun total seluruh waktu supaya bisa mengontrol keuangan.
+- **Pilihan Periode** — Beralih antara rekap bulanan spesifik dan total akumulasi seluruh waktu.
+- **Ringkasan Saldo** — Total pemasukan, pengeluaran, dan saldo sisa secara instan.
+- **Peringatan Boncos / Evaluasi Finansial** — Tanda peringatan saat pengeluaran mendekati atau melewati pemasukan.
 
 ### Fase 4 — Autentikasi `[medium]`
 Amankan catatan keuangan dengan akun pribadi.
@@ -103,6 +104,16 @@ Atur aplikasi agar sesuai kebiasaan mencatat.
 - **Profil Pengguna** — Lihat dan ubah nama serta email akun.
 - **Atur Batas Pengeluaran** — Tentukan batas belanja harian atau bulanan sebagai pengingat.
 - **Ekspor Data** — Unduh catatan keuangan (CSV) untuk disimpan atau dibuka di tempat lain.
+
+### Fase 6 — Produk & Penjualan Bisnis Sampingan `[high]`
+Fitur pencatatan inventaris dan penjualan untuk pengguna yang memiliki usaha/bisnis sampingan.
+- **Tambah & Kelola Produk** — Catat nama produk, harga modal (beli) per pcs, harga jual per pcs, dan jumlah stok awal.
+- **Kelola Stok & Restock** — Pantau sisa stok produk secara real-time dengan status visual (sedia, menipis, habis), serta fitur tambah stok (kulakan) cepat.
+- **Catat Penjualan Cepat** — Pilih produk, masukkan jumlah pcs yang dibeli pelanggan, harga satuan, dan tanggal transaksi. Stok otomatis berkurang.
+- **Hitung Profit Otomatis** — Keuntungan bersih langsung dihitung dari `(harga jual - harga modal) * qty` per transaksi penjualan.
+- **Integrasi Pemasukan & Modal** — Otomatis mencatat omset hasil penjualan ke kategori pemasukan "Bisnis", dan mencatat pembelian modal/restock ke kategori pengeluaran "Modal".
+- **Dashboard Ringkasan Bisnis** — Tampilan total sisa stok (pcs), nilai modal yang tertahan di stok (Rp), total omset penjualan, dan total keuntungan bersih (profit) yang terealisasi.
+- **Riwayat Penjualan** — Daftar lengkap penjualan produk dengan rincian omset, harga satuan, modal, dan profit per transaksi, lengkap dengan opsi pembatalan transaksi (stok otomatis dikembalikan).
 
 ---
 
@@ -136,9 +147,16 @@ Atur aplikasi agar sesuai kebiasaan mencatat.
 3. Setiap transaksi baru langsung disimpan ke server; bila offline, transaksi masuk antrian dan ditandai "menunggu terkirim" sampai koneksi kembali.
 
 ### F. Mengatur Batas & Ekspor
-1. Buka tab "Pengaturan" → "Atur Batas Pengeluaran" → pilih harian/bulanan → isi nominal.
+1. Buka profil / akun → "Atur Batas Pengeluaran" → pilih harian/bulanan → isi nominal.
 2. Saat mendekati batas, aplikasi menampilkan pengingat di layar utama.
 3. Pengguna memilih "Ekspor Data" → memilih rentang tanggal → file CSV diunduh/dibagikan.
+
+### G. Menambah Produk & Mencatat Penjualan Bisnis Sampingan
+1. Pengguna membuka tab "Bisnis" pada navigasi bawah → layar menampilkan ringkasan keuntungan bersih (profit) dan nilai modal stok dalam 3 baris informatif.
+2. Pengguna menekan "Tambah Produk" → memasukkan nama produk, modal per pcs, harga jual, dan stok awal → Simpan. Jika ada stok awal, otomatis tercatat transaksi pengeluaran pada kategori "Modal".
+3. Saat ada pesanan, pengguna menekan "Catat Penjualan" (atau tombol "Jual" pada kartu produk) → masukkan jumlah terjual (dapat diketik langsung) → melihat rincian omset, modal, dan keuntungan bersih → Simpan.
+4. Stok produk otomatis berkurang, total profit bisnis langsung bertambah, dan omset penjualan otomatis tercatat ke transaksi pemasukan kategori "Bisnis".
+5. Saat kulakan/restock produk, pengguna menekan "+ Stok" pada kartu terkait → masukkan jumlah stok baru yang dibeli → sisa stok bertambah dan otomatis tercatat pengeluaran kategori "Modal".
 
 ---
 
@@ -272,6 +290,18 @@ Semua tabel memakai `id` berupa UUID. Tabel `users`, `sessions`, `accounts`, dan
 | is_active | BOOLEAN | Status aktif |
 | created_at | TIMESTAMP | Waktu dibuat |
 
+### Tabel `products`
+| Field | Tipe | Kegunaan |
+|-------|------|----------|
+| id | UUID (PK) | Identitas unik produk |
+| user_id | UUID (FK → users.id) | Pemilik produk |
+| name | TEXT | Nama produk |
+| cost | NUMERIC(14,2) | Harga modal beli per satuan |
+| price | NUMERIC(14,2) | Harga jual per satuan |
+| stock | NUMERIC(14,0) | Jumlah stok fisik tersedia (pcs) |
+| created_at | TIMESTAMP | Waktu dibuat |
+| updated_at | TIMESTAMP | Waktu terakhir diubah |
+
 ### Relasi Antar Tabel
 ```mermaid
 erDiagram
@@ -280,6 +310,7 @@ erDiagram
     users ||--o{ categories : "membuat"
     users ||--o{ transactions : "mencatat"
     users ||--o{ budgets : "mengatur"
+    users ||--o{ products : "mengelola"
     categories ||--o{ transactions : "mengelompokkan"
 
     users {
@@ -330,10 +361,20 @@ erDiagram
         text month
         boolean is_active
     }
+    products {
+        uuid id PK
+        uuid user_id FK
+        text name
+        numeric cost
+        numeric price
+        numeric stock
+        timestamp created_at
+        timestamp updated_at
+    }
 ```
 
 ### Catatan Basis Data
-- Indeks penting: `transactions (user_id, transaction_date)`, `transactions (user_id, category_id)`, dan `UNIQUE (user_id, client_id)`.
+- Indeks penting: `transactions (user_id, transaction_date)`, `transactions (user_id, category_id)`, `UNIQUE (user_id, client_id)`, dan `UNIQUE (user_id, lower(name))` pada `products`.
 - Ringkasan harian/bulanan dihitung lewat query agregasi (`SUM` per tipe dan kategori) sehingga tidak perlu tabel tambahan di MVP.
 - `categories.user_id` bernilai `NULL` untuk kategori bawaan agar bisa dipakai semua pengguna tanpa duplikasi.
 

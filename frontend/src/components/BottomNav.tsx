@@ -2,10 +2,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import * as Haptics from 'expo-haptics';
 import {
+  Briefcase,
   ChartNoAxesColumn,
   CirclePlus,
   History,
-  Settings2,
   type LucideIcon,
 } from 'lucide-react-native';
 import { AppText } from './AppText';
@@ -14,8 +14,8 @@ import { colors, layout, radii, space } from '@/theme/tokens';
 const TAB_META: Record<string, { label: string; icon: LucideIcon }> = {
   index: { label: 'Catat', icon: CirclePlus },
   riwayat: { label: 'Riwayat', icon: History },
+  produk: { label: 'Bisnis', icon: Briefcase },
   analisis: { label: 'Analisis', icon: ChartNoAxesColumn },
-  pengaturan: { label: 'Pengaturan', icon: Settings2 },
 };
 
 export function BottomNav({
@@ -33,11 +33,12 @@ export function BottomNav({
     >
       <View style={styles.inner} accessibilityRole="tablist" accessibilityLabel="Navigasi utama">
         {state.routes.map((route, index) => {
+          const options = descriptors[route.key]?.options;
+          if (options?.href === null || !TAB_META[route.name]) {
+            return null;
+          }
           const focused = state.index === index;
-          const meta = TAB_META[route.name] ?? {
-            label: descriptors[route.key]?.options.title ?? route.name,
-            icon: CirclePlus,
-          };
+          const meta = TAB_META[route.name];
           const Icon = meta.icon;
           const onPress = () => {
             if (!focused) {

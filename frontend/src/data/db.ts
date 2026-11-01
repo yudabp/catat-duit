@@ -92,6 +92,40 @@ async function ensureSchema(db: SQLite.SQLiteDatabase): Promise<void> {
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY NOT NULL,
+      server_id TEXT,
+      name TEXT NOT NULL,
+      cost INTEGER NOT NULL,
+      price INTEGER NOT NULL,
+      stock INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'local'
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_products_name
+      ON products (name);
+
+    CREATE TABLE IF NOT EXISTS sales (
+      id TEXT PRIMARY KEY NOT NULL,
+      product_id TEXT,
+      product_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      cost_per_unit INTEGER NOT NULL,
+      price_per_unit INTEGER NOT NULL,
+      total_price INTEGER NOT NULL,
+      total_profit INTEGER NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      sale_date TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sales_date
+      ON sales (sale_date DESC, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_sales_product
+      ON sales (product_id);
   `);
 }
 

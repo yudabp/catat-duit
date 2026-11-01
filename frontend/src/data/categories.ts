@@ -186,6 +186,22 @@ export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = [
     isDefault: true,
   },
   {
+    id: 'c0000000-0000-4000-8000-000000000014',
+    name: 'Bisnis',
+    type: 'income',
+    icon: 'briefcase',
+    color: DESIGN_PALETTE.mint,
+    isDefault: true,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000015',
+    name: 'Modal',
+    type: 'expense',
+    icon: 'tag',
+    color: DESIGN_PALETTE.yellow,
+    isDefault: true,
+  },
+  {
     id: 'c0000000-0000-4000-8000-000000000013',
     name: 'Lainnya',
     type: 'both',

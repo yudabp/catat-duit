@@ -7,6 +7,12 @@ import { z } from "zod";
 import { env } from "../config/env.js";
 import { createBudgetSchema, updateBudgetSchema } from "../modules/budgets/budgets.schemas.js";
 import {
+  adjustStockSchema,
+  createProductSchema,
+  listProductsQuerySchema,
+  updateProductSchema,
+} from "../modules/products/products.schemas.js";
+import {
   createCategorySchema,
   updateCategorySchema,
 } from "../modules/categories/categories.schemas.js";
@@ -148,6 +154,21 @@ const BudgetAlert = registry.register(
     usagePercent: z.number(),
     status: z.enum(["safe", "warning", "over"]),
     message: z.string(),
+  }),
+);
+
+const Product = registry.register(
+  "Product",
+  z.object({
+    id: z.uuid(),
+    name: z.string(),
+    cost: z.number(),
+    price: z.number(),
+    stock: z.number().int(),
+    profitPerUnit: z.number(),
+    marginPercent: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
   }),
 );
 
@@ -794,6 +815,116 @@ registry.registerPath({
   responses: {
     204: { description: "Batas dihapus" },
     404: errorResponse("Batas tidak ditemukan"),
+  },
+});
+
+/* -------------------------------------------------------------------------- */
+/*                                  Products                                  */
+/* -------------------------------------------------------------------------- */
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/products",
+  tags: ["Products"],
+  summary: "Daftar produk inventaris & stok",
+  security,
+  request: { query: listProductsQuerySchema },
+  responses: {
+    200: jsonResponse(
+      "Daftar produk",
+      z.object({
+        data: z.array(Product),
+        meta: PaginationMeta,
+      }),
+    ),
+    422: errorResponse("Query tidak valid"),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/products",
+  tags: ["Products"],
+  summary: "Tambah produk baru",
+  security,
+  request: {
+    body: {
+      required: true,
+      content: { "application/json": { schema: createProductSchema } },
+    },
+  },
+  responses: {
+    201: jsonResponse("Produk dibuat", z.object({ data: Product })),
+    409: errorResponse("Nama produk sudah ada"),
+    422: errorResponse("Data tidak valid"),
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/products/{id}",
+  tags: ["Products"],
+  summary: "Detail produk",
+  security,
+  request: { params: idParamsSchema },
+  responses: {
+    200: jsonResponse("Detail produk", z.object({ data: Product })),
+    404: errorResponse("Produk tidak ditemukan"),
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/v1/products/{id}",
+  tags: ["Products"],
+  summary: "Ubah data produk",
+  security,
+  request: {
+    params: idParamsSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: updateProductSchema } },
+    },
+  },
+  responses: {
+    200: jsonResponse("Produk diperbarui", z.object({ data: Product })),
+    404: errorResponse("Produk tidak ditemukan"),
+    409: errorResponse("Nama produk sudah ada"),
+    422: errorResponse("Data tidak valid"),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/products/{id}/stock",
+  tags: ["Products"],
+  summary: "Ubah / restock jumlah stok produk",
+  security,
+  request: {
+    params: idParamsSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: adjustStockSchema } },
+    },
+  },
+  responses: {
+    200: jsonResponse("Stok produk diperbarui", z.object({ data: Product })),
+    400: errorResponse("Stok tidak mencukupi"),
+    404: errorResponse("Produk tidak ditemukan"),
+    422: errorResponse("Data tidak valid"),
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/v1/products/{id}",
+  tags: ["Products"],
+  summary: "Hapus produk",
+  security,
+  request: { params: idParamsSchema },
+  responses: {
+    204: { description: "Produk dihapus" },
+    404: errorResponse("Produk tidak ditemukan"),
   },
 });
 

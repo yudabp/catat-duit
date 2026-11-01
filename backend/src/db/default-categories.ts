@@ -103,6 +103,22 @@ export const DEFAULT_CATEGORIES: NewCategory[] = [
     isDefault: true,
   },
   {
+    id: "c0000000-0000-4000-8000-000000000014",
+    name: "Bisnis",
+    type: "income",
+    icon: "briefcase",
+    color: "#10B981",
+    isDefault: true,
+  },
+  {
+    id: "c0000000-0000-4000-8000-000000000015",
+    name: "Modal",
+    type: "expense",
+    icon: "tag",
+    color: "#F59E0B",
+    isDefault: true,
+  },
+  {
     id: "c0000000-0000-4000-8000-000000000013",
     name: "Lainnya",
     type: "both",
@@ -125,5 +141,7 @@ export const DEFAULT_CATEGORY_IDS = {
   bonus: DEFAULT_CATEGORIES[9]!.id!,
   investasi: DEFAULT_CATEGORIES[10]!.id!,
   freelance: DEFAULT_CATEGORIES[11]!.id!,
-  lainnya: DEFAULT_CATEGORIES[12]!.id!,
+  bisnis: "c0000000-0000-4000-8000-000000000014",
+  modal: "c0000000-0000-4000-8000-000000000015",
+  lainnya: "c0000000-0000-4000-8000-000000000013",
 } as const;

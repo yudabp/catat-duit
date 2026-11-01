@@ -26,6 +26,7 @@ import {
   useCategories,
   useMonthSummary,
   usePendingCount,
+  useTotalSummary,
   useTransactions,
 } from '@/hooks/useData';
 import { useSyncNow } from '@/hooks/useSync';
@@ -68,6 +69,7 @@ export default function HomeScreen() {
 
   const { data: categories = [] } = useCategories();
   const { data: summary } = useMonthSummary(month);
+  const { data: totalSummary } = useTotalSummary();
   const { data: todayTransactions = [] } = useTransactions({
     from: today,
     to: today,
@@ -233,6 +235,7 @@ export default function HomeScreen() {
 
       <BalanceCard
         summary={safeSummary}
+        totalSummary={totalSummary ?? { ...EMPTY_SUMMARY, month: 'all' }}
         month={month}
         budget={budget}
         onBudgetPress={() => router.push('/pengaturan')}

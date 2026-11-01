@@ -215,6 +215,37 @@ export const budgets = pgTable(
   ],
 );
 
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    cost: numeric("cost", { precision: 14, scale: 2 }).notNull(),
+    price: numeric("price", { precision: 14, scale: 2 }).notNull(),
+    stock: numeric("stock", { precision: 14, scale: 0 }).notNull().default("0"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("products_user_id_idx").on(table.userId),
+    uniqueIndex("products_user_name_unique").on(
+      table.userId,
+      sql`lower(${table.name})`,
+    ),
+    check("products_cost_positive", sql`${table.cost} > 0`),
+    check("products_price_positive", sql`${table.price} > 0`),
+    check("products_stock_nonnegative", sql`${table.stock} >= 0`),
+  ],
+);
+
 /* -------------------------------------------------------------------------- */
 /*                                 Relations                                  */
 /* -------------------------------------------------------------------------- */
@@ -225,6 +256,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   categories: many(categories),
   transactions: many(transactions),
   budgets: many(budgets),
+  products: many(products),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -267,6 +299,13 @@ export const budgetsRelations = relations(budgets, ({ one }) => ({
   }),
 }));
 
+export const productsRelations = relations(products, ({ one }) => ({
+  user: one(users, {
+    fields: [products.userId],
+    references: [users.id],
+  }),
+}));
+
 /* -------------------------------------------------------------------------- */
 /*                                   Types                                    */
 /* -------------------------------------------------------------------------- */
@@ -279,6 +318,8 @@ export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type Budget = typeof budgets.$inferSelect;
 export type NewBudget = typeof budgets.$inferInsert;
+export type Product = typeof products.$inferSelect;
+export type NewProduct = typeof products.$inferInsert;
 export type CategoryType = (typeof categoryTypeEnum.enumValues)[number];
 export type TransactionType = (typeof transactionTypeEnum.enumValues)[number];
 export type BudgetPeriod = (typeof budgetPeriodEnum.enumValues)[number];

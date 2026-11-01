@@ -38,6 +38,58 @@ export type NewTransactionInput = {
 
 export type UpdateTransactionInput = Partial<NewTransactionInput>;
 
+export type Product = {
+  id: string;
+  name: string;
+  cost: number;
+  price: number;
+  stock: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewProductInput = {
+  name: string;
+  cost: number;
+  price: number;
+  stock?: number;
+};
+
+export type UpdateProductInput = Partial<NewProductInput>;
+
+export type Sale = {
+  id: string;
+  productId: string | null;
+  productName: string;
+  quantity: number;
+  costPerUnit: number;
+  pricePerUnit: number;
+  totalPrice: number;
+  totalProfit: number;
+  note: string;
+  saleDate: string;
+  createdAt: string;
+};
+
+export type NewSaleInput = {
+  productId: string;
+  quantity: number;
+  pricePerUnit?: number;
+  note?: string;
+  saleDate?: string;
+  recordAsIncome?: boolean;
+};
+
+export type InventorySummary = {
+  totalProducts: number;
+  totalStockUnits: number;
+  totalCapitalValue: number;
+  totalEstimatedRevenue: number;
+  totalRealizedProfit: number;
+  totalSalesRevenue: number;
+  totalSalesCount: number;
+};
+
 export type Budget = {
   period: BudgetPeriod;
   amount: number;
@@ -92,6 +144,16 @@ export type RemoteCategory = {
   createdAt: string;
 };
 
+export type RemoteProduct = {
+  id: string;
+  name: string;
+  cost: number;
+  price: number;
+  stock: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type RemoteBudget = {
   id: string;
   period: BudgetPeriod;
@@ -100,6 +162,7 @@ export type RemoteBudget = {
   isActive: boolean;
   createdAt: string;
 };
+
 
 export type MonthSummary = {
   month: string;

@@ -6,6 +6,7 @@ import type {
   CategoryType,
   RemoteBudget,
   RemoteCategory,
+  RemoteProduct,
   RemoteTransaction,
   SessionUser,
   TransactionType,
@@ -271,6 +272,52 @@ export async function apiFetchCategories(token: string): Promise<RemoteCategory[
   });
   return result.data;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Products                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export async function apiFetchProducts(
+  token: string,
+  params: { page?: number; limit?: number; search?: string } = {},
+): Promise<{ data: RemoteProduct[]; meta?: any }> {
+  const query = new URLSearchParams();
+  if (params.page) query.append('page', String(params.page));
+  if (params.limit) query.append('limit', String(params.limit));
+  if (params.search) query.append('search', params.search);
+  const result = await apiRequest<RemoteProduct[]>(`/api/v1/products?${query.toString()}`, { token });
+  return { data: result.data, meta: result.meta };
+}
+
+export async function apiCreateProduct(
+  token: string,
+  input: { name: string; cost: number; price: number; stock?: number },
+): Promise<RemoteProduct> {
+  const { data } = await apiRequest<RemoteProduct>('/api/v1/products', {
+    method: 'POST',
+    token,
+    body: input,
+  });
+  return data;
+}
+
+export async function apiUpdateProduct(
+  token: string,
+  id: string,
+  input: Partial<{ name: string; cost: number; price: number; stock: number }>,
+): Promise<RemoteProduct> {
+  const { data } = await apiRequest<RemoteProduct>(`/api/v1/products/${id}`, {
+    method: 'PATCH',
+    token,
+    body: input,
+  });
+  return data;
+}
+
+export async function apiDeleteProduct(token: string, id: string): Promise<void> {
+  await apiRequest<void>(`/api/v1/products/${id}`, { method: 'DELETE', token });
+}
+
 
 /* -------------------------------------------------------------------------- */
 /* Transactions                                                                */
