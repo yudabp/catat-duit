@@ -1,9 +1,38 @@
-import { pathToFileURL } from "node:url";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { db, pool } from "./index.js";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+import { env } from "../config/env.js";
+import { db, pool, schema } from "./index.js";
+
+const { Pool } = pg;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const migrationsFolder = path.resolve(__dirname, "../../drizzle");
 
 export async function runMigrations(): Promise<void> {
-  await migrate(db, { migrationsFolder: "./drizzle" });
+  const migrationUrl = env.DATABASE_URL_UNPOOLED || env.DATABASE_URL;
+  const isSsl =
+    env.DB_SSL ||
+    migrationUrl.includes("sslmode=require") ||
+    migrationUrl.includes("neon.tech");
+
+  if (env.DATABASE_URL_UNPOOLED) {
+    const migrationPool = new Pool({
+      connectionString: env.DATABASE_URL_UNPOOLED,
+      max: 1,
+      connectionTimeoutMillis: 10_000,
+      ssl: isSsl ? { rejectUnauthorized: false } : undefined,
+    });
+    const migrationDb = drizzle(migrationPool, { schema });
+    try {
+      await migrate(migrationDb, { migrationsFolder });
+    } finally {
+      await migrationPool.end();
+    }
+  } else {
+    await migrate(db, { migrationsFolder });
+  }
 }
 
 async function main(): Promise<void> {

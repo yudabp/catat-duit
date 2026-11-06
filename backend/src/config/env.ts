@@ -1,7 +1,14 @@
+import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-dotenv.config({ quiet: true });
+const cwd = process.cwd();
+dotenv.config({ path: path.resolve(cwd, ".env.local"), quiet: true });
+dotenv.config({ path: path.resolve(cwd, ".env"), quiet: true });
+dotenv.config({ path: path.resolve(cwd, "../.env.local"), quiet: true });
+dotenv.config({ path: path.resolve(cwd, "../.env"), quiet: true });
+dotenv.config({ path: path.resolve(cwd, "backend/.env.local"), quiet: true });
+dotenv.config({ path: path.resolve(cwd, "backend/.env"), quiet: true });
 
 const booleanFromString = (defaultValue: "true" | "false") =>
   z
@@ -15,9 +22,14 @@ const envSchema = z
     PORT: z.coerce.number().int().min(1).max(65535).default(4000),
 
     DATABASE_URL: z.string().min(1, "DATABASE_URL wajib diisi"),
+    DATABASE_URL_UNPOOLED: z.string().optional(),
     TEST_DATABASE_URL: z.string().min(1).optional(),
     DB_SSL: booleanFromString("false"),
     DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+
+    NEON_BRANCH: z.string().optional(),
+    NEON_AUTH_BASE_URL: z.string().optional(),
+    NEON_AUTH_JWKS_URL: z.string().optional(),
 
     BETTER_AUTH_URL: z.url().default("http://localhost:4000"),
     BETTER_AUTH_SECRET: z

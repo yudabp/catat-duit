@@ -6,13 +6,18 @@ import * as schema from "./schema.js";
 
 const { Pool } = pg;
 
+const isSsl =
+  env.DB_SSL ||
+  env.DATABASE_URL.includes("sslmode=require") ||
+  env.DATABASE_URL.includes("neon.tech");
+
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
   max: env.DB_POOL_MAX,
-  connectionTimeoutMillis: 5_000,
+  connectionTimeoutMillis: 10_000,
   idleTimeoutMillis: 30_000,
   application_name: "catat-duit-api",
-  ssl: env.DB_SSL ? { rejectUnauthorized: false } : undefined,
+  ssl: isSsl ? { rejectUnauthorized: false } : undefined,
 });
 
 pool.on("error", (error) => {
