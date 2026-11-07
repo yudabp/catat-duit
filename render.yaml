@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: catat-duit-backend
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run db:migrate:prod && npm run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: BETTER_AUTH_URL
+        value: https://catat-duit-backend.onrender.com
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: EMAIL_TRANSPORT
+        value: log
+      - key: ALLOW_INSECURE_EMAIL_LOG
+        value: "true"
+      - key: SWAGGER_ENABLED
+        value: "true"

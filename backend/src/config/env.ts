@@ -31,7 +31,9 @@ const envSchema = z
     NEON_AUTH_BASE_URL: z.string().optional(),
     NEON_AUTH_JWKS_URL: z.string().optional(),
 
-    BETTER_AUTH_URL: z.url().default("http://localhost:4000"),
+    BETTER_AUTH_URL: z
+      .url()
+      .default(process.env.RENDER_EXTERNAL_URL || "http://localhost:4000"),
     BETTER_AUTH_SECRET: z
       .string()
       .min(32, "BETTER_AUTH_SECRET minimal 32 karakter"),
