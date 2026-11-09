@@ -9,6 +9,8 @@ services:
     startCommand: npm run db:migrate:prod && npm run start
     healthCheckPath: /health
     autoDeploy: true
+    domains:
+      - api-catat.ybpcrest.ai.id
     envVars:
       - key: NODE_VERSION
         value: "22"
@@ -23,7 +25,7 @@ services:
       - key: TRUST_PROXY
         value: "1"
       - key: BETTER_AUTH_URL
-        value: https://catat-duit-backend.onrender.com
+        value: https://api-catat.ybpcrest.ai.id
       - key: BETTER_AUTH_SECRET
         generateValue: true
       - key: ALLOWED_ORIGINS
