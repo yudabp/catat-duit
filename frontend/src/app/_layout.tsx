@@ -119,6 +119,10 @@ function AppNavigator() {
         options={{ animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
+        name="pengaturan/index"
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
         name="pengaturan/kategori"
         options={{ animation: 'slide_from_right' }}
       />

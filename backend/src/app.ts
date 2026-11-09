@@ -25,7 +25,9 @@ import { productsRouter } from "./modules/products/products.routes.js";
 import { transactionsRouter } from "./modules/transactions/transactions.routes.js";
 
 function isAllowedOrigin(origin: string): boolean {
-  if (env.allowedOrigins.includes(origin)) return true;
+  if (env.allowedOrigins.includes("*") || env.allowedOrigins.includes(origin)) {
+    return true;
+  }
 
   if (!env.isProduction) {
     return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);

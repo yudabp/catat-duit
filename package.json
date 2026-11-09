@@ -1,0 +1,14 @@
+{
+  "name": "catat-duit",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix backend run build",
+    "start": "npm --prefix backend run start",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "test": "npm --prefix backend run test"
+  },
+  "dependencies": {
+    "@neon/config": "^1.10.0",
+    "@neon/env": "^1.6.8"
+  }
+}
