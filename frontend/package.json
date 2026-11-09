@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "export:ios": "expo export --platform ios"
+    "export:ios": "expo export --platform ios",
+    "build:apk": "eas build -p android --profile preview",
+    "build:apk:local": "eas build -p android --profile preview-local"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
