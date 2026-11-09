@@ -56,6 +56,7 @@ export function SaleFormSheet({
       const target =
         products.find((p) => p.id === initialProductId) ?? products[0];
       if (target) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedProductId(target.id);
         setCustomPrice(target.price);
       }

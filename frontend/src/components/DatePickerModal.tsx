@@ -16,7 +16,8 @@ import {
 
 type DatePickerModalProps = {
   visible: boolean;
-  value: string;
+  value?: string;
+  selectedDate?: string;
   inline?: boolean;
   onSelect: (isoDate: string) => void;
   onClose: () => void;
@@ -27,19 +28,21 @@ const WEEK_START_MONDAY = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 export function DatePickerModal({
   visible,
   value,
+  selectedDate,
   inline = false,
   onSelect,
   onClose,
 }: DatePickerModalProps) {
-  const [viewMonth, setViewMonth] = useState(monthKey(value || todayISO()));
+  const activeValue = selectedDate ?? value ?? todayISO();
+  const [viewMonth, setViewMonth] = useState(monthKey(activeValue));
 
   useEffect(() => {
     // Reset the displayed month each time the picker opens.
     if (visible) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setViewMonth(monthKey(value || todayISO()));
+      setViewMonth(monthKey(activeValue));
     }
-  }, [visible, value]);
+  }, [visible, activeValue]);
 
   const days = useMemo(() => daysInMonth(viewMonth), [viewMonth]);
   const firstDayOffset = useMemo(() => {

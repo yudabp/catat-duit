@@ -7,10 +7,12 @@ import { colors, radii, shadowRaised, space } from '@/theme/tokens';
 type ConfirmDialogProps = {
   visible: boolean;
   title: string;
-  message: string;
+  message?: string;
+  description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  danger?: boolean;
   inline?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -20,14 +22,19 @@ export function ConfirmDialog({
   visible,
   title,
   message,
+  description,
   confirmLabel = 'Hapus',
   cancelLabel = 'Batal',
   destructive = true,
+  danger,
   inline = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   if (!visible) return null;
+
+  const isDestructive = danger ?? destructive;
+  const dialogMessage = description ?? message ?? '';
 
   const content = (
     <View
@@ -42,18 +49,18 @@ export function ConfirmDialog({
       />
       <View accessibilityRole="alert" style={styles.card}>
         <View
-          style={[styles.iconWrap, destructive ? styles.iconDanger : styles.iconInfo]}
+          style={[styles.iconWrap, isDestructive ? styles.iconDanger : styles.iconInfo]}
         >
           <TriangleAlert
             size={20}
-            color={destructive ? colors.danger : colors.primary}
+            color={isDestructive ? colors.danger : colors.primary}
           />
         </View>
         <AppText variant="bodyLg" weight="medium" align="center" style={styles.title}>
           {title}
         </AppText>
         <AppText variant="bodySm" color={colors.textMuted} align="center">
-          {message}
+          {dialogMessage}
         </AppText>
         <View style={styles.actions}>
           <Button
@@ -67,7 +74,7 @@ export function ConfirmDialog({
           <Button
             label={confirmLabel}
             onPress={onConfirm}
-            variant={destructive ? 'danger' : 'primary'}
+            variant={isDestructive ? 'danger' : 'primary'}
             size="sm"
             testID="confirm-dialog-confirm"
             style={styles.action}

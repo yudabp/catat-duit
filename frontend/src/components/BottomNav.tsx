@@ -33,7 +33,9 @@ export function BottomNav({
     >
       <View style={styles.inner} accessibilityRole="tablist" accessibilityLabel="Navigasi utama">
         {state.routes.map((route, index) => {
-          const options = descriptors[route.key]?.options;
+          const options = descriptors[route.key]?.options as
+            | { href?: string | null }
+            | undefined;
           if (options?.href === null || !TAB_META[route.name]) {
             return null;
           }
