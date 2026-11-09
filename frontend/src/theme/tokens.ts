@@ -13,6 +13,7 @@ export const colors = {
   canvas: '#FFFFFF',
   surface: '#FAF9F7',
   surfaceMuted: '#F7F6F2',
+  surfaceSubtle: '#F7F6F2',
   text: '#001F1F',
   textMuted: '#455252',
   textSubtle: '#6A7878',
@@ -35,6 +36,8 @@ export const colors = {
   warningSoft: '#FFFAE6',
   danger: '#B8252F',
   dangerSoft: '#FCEFF1',
+  accentMint: '#046645',
+  accentRed: '#B8252F',
   overlay: 'rgba(0, 31, 31, 0.38)',
   transparent: 'transparent',
 } as const;
@@ -57,6 +60,8 @@ export const space = {
 } as const;
 
 export const radii = {
+  sm: 6,
+  input: 12,
   control: 12,
   card: 20,
   panel: 24,

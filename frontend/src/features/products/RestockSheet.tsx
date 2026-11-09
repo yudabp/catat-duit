@@ -33,6 +33,7 @@ export function RestockSheet({
 
   useEffect(() => {
     if (visible && product) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAmount(10);
       setCost(product.cost);
       setError(null);

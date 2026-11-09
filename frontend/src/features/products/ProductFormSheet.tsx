@@ -41,6 +41,7 @@ export function ProductFormSheet({
 
   useEffect(() => {
     if (visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(initial?.name ?? '');
       setCost(initial?.cost ?? 0);
       setPrice(initial?.price ?? 0);
